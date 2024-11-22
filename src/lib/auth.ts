@@ -21,6 +21,9 @@ export async function signIn(email: string, password: string) {
     email,
     password,
   });
+
+  console.log("This is error from the Login",error);
+  console.log("This is the data",data)
   
   if (error) throw error;
   return data;
@@ -81,6 +84,23 @@ export async function signUp(
       ]);
 
       if (doctorError) throw doctorError;
+
+      const cost = calculateCost(profileData.specialization, profileData.years_of_experience);
+      const duration = calculateDuration(profileData.specialization);
+
+      const { error: appointmentError } = await supabase.from('appointment_types').insert([
+        {
+          doctor_id: authData.user.id, // Use the doctor's ID
+          doctor_name: profileData.full_name,
+          doctor_specialization: profileData.specialization,
+          name: `${profileData.specialization} Appointment`,
+          price: cost,
+          duration: duration,
+          created_at: new Date(),
+        },
+      ]);
+
+      if (appointmentError) throw appointmentError;
     }
 
     return authData;
@@ -127,6 +147,34 @@ export async function initializeAuth() {
     console.error('Initialize auth error:', error);
     return null;
   }
+}
+
+// Cost calculation function
+function calculateCost(specialization?: string, years_of_experience?: number): number {
+  const baseRate = 500; // Base cost
+  const specializationRate: Record<string, number> = {
+    Cardiologist: 1.5,
+    Neurologist: 1.4,
+    Dentist: 1.2,
+    General: 1.0,
+  };
+
+  const multiplier = specializationRate[specialization || 'General'] || 1.0;
+  const experienceBonus = (years_of_experience || 0) * 50;
+
+  return baseRate * multiplier + experienceBonus;
+}
+
+// Duration calculation function
+function calculateDuration(specialization?: string): number {
+  const durationMap: Record<string, number> = {
+    Cardiologist: 60,
+    Neurologist: 50,
+    Dentist: 30,
+    General: 20,
+  };
+
+  return durationMap[specialization || 'General'] || 30; // Default to 30 minutes
 }
 
 // Remove the auth state listener from here as we'll handle it in the AuthGuard
